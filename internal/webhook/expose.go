@@ -39,6 +39,10 @@ func (h Admit) V1beta1(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	return h.v1beta1(ar)
 }
 
+func V1AdmissionError(err error) *v1.AdmissionResponse {
+	return toV1AdmissionResponse(err)
+}
+
 func NewDelegateToV1AdmitHandler(f func(v1.AdmissionReview) *v1.AdmissionResponse) Admit {
 	return Admit{
 		admitHandler: newDelegateToV1AdmitHandler(f),

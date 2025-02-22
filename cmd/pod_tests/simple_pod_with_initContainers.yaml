@@ -1,0 +1,30 @@
+initial:
+  # Pod vacío, sin contenedores
+  pod:
+    spec:
+      initContainers:
+      - name: test
+        image: busybox/latest
+
+# Debe mutarse
+shouldMutate: true
+
+expected:
+  # Debe añadir el securityContext al Pod
+  - op: add
+    path: /spec/securityContext
+    value:
+      runAsUser: 1000
+      runAsGroup: 1000
+      runAsNonRoot: true
+      fsGroup: 1000
+      seccompProfile:
+        type: "RuntimeDefault"
+  # Debe eliminar el securityContext a los initContainers
+  - op: add
+    path: /spec/initContainers/0/securityContext
+    value:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL

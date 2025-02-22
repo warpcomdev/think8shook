@@ -147,24 +147,22 @@ func serve(w http.ResponseWriter, r *http.Request, admit AdmitHandler, codecs *s
 	}
 }
 
+func serveMutatePods(codecs *serializer.CodecFactory) http.Handler {
+	closure := webhook.NewDelegateToV1AdmitHandler(func(ar v1.AdmissionReview) *v1.AdmissionResponse {
+		return mutateSecurityContext(ar, codecs)
+	})
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		serve(w, r, closure, codecs)
+	})
+}
+
 func main(cmd *cobra.Command, args []string) {
 	config := webhook.Config{
 		CertFile: certFile,
 		KeyFile:  keyFile,
 	}
-	//
-	// http.HandleFunc("/always-allow-delay-5s", serveAlwaysAllowDelayFiveSeconds)
-	// http.HandleFunc("/always-deny", serveAlwaysDeny)
-	// http.HandleFunc("/add-label", serveAddLabel)
-	// http.HandleFunc("/pods", servePods)
-	// http.HandleFunc("/pods/attach", serveAttachingPods)
-	// http.HandleFunc("/mutating-pods", serveMutatePods)
-	// http.HandleFunc("/mutating-pods-sidecar", serveMutatePodsSidecar)
-	// http.HandleFunc("/configmaps", serveConfigmaps)
-	// http.HandleFunc("/mutating-configmaps", serveMutateConfigmaps)
-	// http.HandleFunc("/custom-resource", serveCustomResource)
-	// http.HandleFunc("/mutating-custom-resource", serveMutateCustomResource)
-	// http.HandleFunc("/crd", serveCRD)
+	codecs := webhook.Codecs()
+	http.Handle("/mutating-pods", serveMutatePods(codecs))
 	http.HandleFunc("/readyz", func(w http.ResponseWriter, req *http.Request) { w.Write([]byte("ok")) })
 	server := &http.Server{
 		ReadTimeout:       10 * time.Second,
