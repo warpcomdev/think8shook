@@ -1,0 +1,26 @@
+initial:
+  # Pod vacío, sin contenedores
+  pod:
+    metadata:
+      name: secured_profile
+      namespace: default
+    spec:
+      securityContext:
+        seccompProfile:
+          type: "Localhost"
+      containers: []
+
+# Debe mutarse
+shouldMutate: true
+
+expected:
+  # Debe reemplazar el securityContext
+  - op: replace
+    path: /spec/securityContext
+    value:
+      runAsUser: 1000
+      runAsGroup: 1000
+      runAsNonRoot: true
+      fsGroup: 1000
+      seccompProfile:
+        type: "Localhost"

@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"flag"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -27,6 +28,7 @@ import (
 	"github.com/warpcomdev/think8shook/internal/webhook"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/klog/v2"
 )
 
 func mustMarshal(v interface{}) json.RawMessage {
@@ -38,12 +40,19 @@ func mustMarshal(v interface{}) json.RawMessage {
 }
 
 type podTestCase struct {
-	Initial      json.RawMessage `json:"initial"`
-	ShouldMutate bool            `json:"shouldMutate"`
-	Expected     []jsonPatch     `json:"expected"`
+	Initial      map[string]json.RawMessage `json:"initial"`
+	ShouldMutate bool                       `json:"shouldMutate"`
+	Expected     []jsonPatch                `json:"expected"`
 }
 
 func TestSecurityPatches(t *testing.T) {
+	var fset flag.FlagSet
+	klog.InitFlags(&fset)
+	fset.Parse([]string{
+		"--v", "10",
+		"--logtostderr", "true",
+	})
+	defer klog.Flush()
 	mutator := podMutator(mutatePodSecurityContext, mutateContainerSecurityContext)
 	err := filepath.WalkDir("pod_tests", func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
@@ -65,7 +74,7 @@ func TestSecurityPatches(t *testing.T) {
 			// Pod must be properly deserialized
 			deserializer := webhook.Codecs().UniversalDeserializer()
 			var pod corev1.Pod
-			if _, _, err := deserializer.Decode(testCase.Initial, nil, &pod); err != nil {
+			if _, _, err := deserializer.Decode(testCase.Initial["pod"], nil, &pod); err != nil {
 				t.Fatal(err)
 			}
 			// Check if mutation filter matches
@@ -89,21 +98,21 @@ func TestSecurityPatches(t *testing.T) {
 	}
 }
 
-func mustEqual(t *testing.T, first *patchSet, second []jsonPatch) {
-	if len(first.patches) != len(second) {
-		t.Errorf("patch sets length do not match, got %s", first)
+func mustEqual(t *testing.T, actual *patchSet, expected []jsonPatch) {
+	if len(actual.patches) != len(expected) {
+		t.Errorf("patch sets length do not match, got %s", actual)
 		return
 	}
-	for i, f := range first.patches {
-		s := second[i]
-		if f.Op != s.Op {
-			t.Errorf("Operations differ at position %d: %v != %v", i, f, s)
+	for i, a := range actual.patches {
+		e := expected[i]
+		if a.Op != e.Op {
+			t.Errorf("Operations differ at position %d: expected %v, got %v", i, e.Op, a.Op)
 			return
 		}
-		if f.Path != s.Path {
-			t.Errorf("Paths differ at position %d: %v != %v", i, f, s)
+		if a.Path != e.Path {
+			t.Errorf("Paths differ at position %d: expected %v, got %v", i, e.Path, a.Path)
 			return
 		}
-		require.JSONEq(t, string(f.Value), string(s.Value))
+		require.JSONEq(t, string(e.Value), string(a.Value))
 	}
 }

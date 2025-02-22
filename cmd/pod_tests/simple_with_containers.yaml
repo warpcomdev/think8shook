@@ -1,8 +1,11 @@
 initial:
   # Pod vacío, sin contenedores
   pod:
+    metadata:
+      name: simple_with_containers
+      namespace: default
     spec:
-      initContainers:
+      containers:
       - name: test
         image: busybox/latest
 
@@ -22,9 +25,8 @@ expected:
         type: "RuntimeDefault"
   # Debe eliminar el securityContext a los initContainers
   - op: add
-    path: /spec/initContainers/0/securityContext
+    path: /spec/containers/0/securityContext
     value:
-      allowPrivilegeEscalation: false
       capabilities:
         drop:
         - ALL

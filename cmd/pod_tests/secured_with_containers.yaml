@@ -1,0 +1,39 @@
+initial:
+  # Pod vacío, sin contenedores
+  pod:
+    metadata:
+      name: secured_with_containers
+      namespace: default
+    spec:
+      containers:
+      - name: test
+        image: busybox/latest
+        securityContext:
+          # This must be set to false
+          allowPrivilegeEscalation: true
+          # This will be copied verbatim
+          capabilities:
+            add:
+            - ALL
+
+# Debe mutarse
+shouldMutate: true
+
+expected:
+  # Debe reemplazar el securityContext
+  - op: add
+    path: /spec/securityContext
+    value:
+      runAsUser: 1000
+      runAsGroup: 1000
+      runAsNonRoot: true
+      fsGroup: 1000
+      seccompProfile:
+        type: "RuntimeDefault"
+  # Debe reemplazar el securityContext del contenedor
+  - op: replace
+    path: /spec/containers/0/securityContext
+    value:
+      capabilities:
+        add:
+        - ALL

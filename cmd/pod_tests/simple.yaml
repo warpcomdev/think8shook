@@ -1,0 +1,23 @@
+initial:
+  # Pod vacío, sin contenedores
+  pod:
+    metadata:
+      name: simple
+      namespace: default
+    spec:
+      containers: []
+
+# Debe mutarse
+shouldMutate: true
+
+expected:
+  # Debe añadir el securityContext
+  - op: add
+    path: /spec/securityContext
+    value:
+      runAsUser: 1000
+      runAsGroup: 1000
+      runAsNonRoot: true
+      fsGroup: 1000
+      seccompProfile:
+        type: "RuntimeDefault"

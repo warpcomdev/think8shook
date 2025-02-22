@@ -30,6 +30,7 @@ import (
 
 const (
 	InjectedUID = 1000
+	InjectedGID = 1000
 )
 
 type jsonPatch struct {
@@ -82,7 +83,7 @@ type podMutatorFunc func(pod *corev1.Pod, ps *patchSet) error
 
 func podMutator(podM podSpecMutateFunc, containerM containerMutateFunc) podMutatorFunc {
 	return func(pod *corev1.Pod, ps *patchSet) error {
-		// First patch: pod level securityPolicy
+		// First: patch pod level securityPolicy
 		if err := podM(pod, ps); err != nil {
 			return nil
 		}
@@ -168,24 +169,79 @@ func mutatePodSecurityContext(pod *corev1.Pod, ps *patchSet) error {
 		sc = &corev1.PodSecurityContext{}
 		op = "add"
 	}
-	if sc.RunAsUser == nil {
-		var uid int64 = InjectedUID
+	switch {
+	case sc.RunAsUser == nil && sc.RunAsGroup == nil && sc.FSGroup == nil:
+		// Nothing defined, set all to defaults
+		var (
+			uid     int64 = InjectedUID
+			gid     int64 = InjectedGID
+			fsGroup int64 = InjectedGID
+		)
 		sc.RunAsUser = &uid
+		sc.RunAsGroup = &gid
+		sc.FSGroup = &fsGroup
 		modified = true
-	}
-	if sc.RunAsGroup == nil {
-		var gid int64 = *sc.RunAsUser
+		break
+	case sc.RunAsUser == nil && sc.RunAsGroup == nil && sc.FSGroup != nil:
+		// Only fsGroup defined: propagate to the other values
+		var (
+			uid int64 = *sc.FSGroup
+			gid int64 = *sc.FSGroup
+		)
+		sc.RunAsUser = &uid
 		sc.RunAsGroup = &gid
 		modified = true
+		break
+	case sc.RunAsUser == nil && sc.RunAsGroup != nil && sc.FSGroup == nil:
+		// Only RunAsGroup defined: propagate to the other values
+		var (
+			uid     int64 = *sc.RunAsGroup
+			fsGroup int64 = *sc.RunAsGroup
+		)
+		sc.RunAsUser = &uid
+		sc.FSGroup = &fsGroup
+		modified = true
+		break
+	case sc.RunAsUser == nil && sc.RunAsGroup != nil && sc.FSGroup != nil:
+		// Both RunAsGroup and FSGroup defined: copy group to RunAsUser
+		var (
+			uid int64 = *sc.RunAsGroup
+		)
+		sc.RunAsUser = &uid
+		modified = true
+		break
+	case sc.RunAsUser != nil && sc.RunAsGroup == nil && sc.FSGroup == nil:
+		// Only RunAsUser defined: propagate
+		var (
+			gid     int64 = *sc.RunAsUser
+			fsGroup int64 = *sc.RunAsUser
+		)
+		sc.RunAsGroup = &gid
+		sc.FSGroup = &fsGroup
+		modified = true
+		break
+	case sc.RunAsUser != nil && sc.RunAsGroup == nil && sc.FSGroup != nil:
+		// Only RunAsGroup undefined: fill with fsGroup
+		var (
+			gid int64 = *sc.FSGroup
+		)
+		sc.RunAsGroup = &gid
+		modified = true
+		break
+	case sc.RunAsUser != nil && sc.RunAsGroup != nil && sc.FSGroup == nil:
+		// Only fsGroup undefied: fill with RunAsGroup
+		var (
+			fsGroup int64 = *sc.RunAsGroup
+		)
+		sc.FSGroup = &fsGroup
+		modified = true
+		break
+	case sc.RunAsUser != nil && sc.RunAsGroup != nil && sc.FSGroup != nil:
+		break
 	}
 	if sc.RunAsNonRoot == nil {
 		var nonRoot = (*sc.RunAsUser != 0)
 		sc.RunAsNonRoot = &nonRoot
-		modified = true
-	}
-	if sc.FSGroup == nil {
-		var gid int64 = *sc.RunAsUser
-		sc.FSGroup = &gid
 		modified = true
 	}
 	if sc.SeccompProfile == nil {
@@ -208,10 +264,13 @@ func mutateContainerSecurityContext(path string, container *corev1.Container, ps
 		sc = &corev1.SecurityContext{}
 		op = "add"
 	}
-	if sc.AllowPrivilegeEscalation == nil {
+	if sc.AllowPrivilegeEscalation != nil && *sc.AllowPrivilegeEscalation == true {
 		modified = true
-		var ape = false
-		sc.AllowPrivilegeEscalation = &ape
+		sc.AllowPrivilegeEscalation = nil
+	}
+	if sc.Privileged != nil && *sc.Privileged == true {
+		modified = true
+		sc.Privileged = nil
 	}
 	if sc.Capabilities == nil {
 		modified = true

@@ -1,0 +1,26 @@
+initial:
+  # Pod vacío, sin contenedores
+  pod:
+    metadata:
+      name: secured_user_fsgroup
+      namespace: default
+    spec:
+      securityContext:
+        runAsUser: 5000
+        fsGroup: 6000
+      containers: []
+
+# Debe mutarse
+shouldMutate: true
+
+expected:
+  # Debe reemplazar el securityContext
+  - op: replace
+    path: /spec/securityContext
+    value:
+      runAsUser: 5000
+      runAsGroup: 6000
+      runAsNonRoot: true
+      fsGroup: 6000
+      seccompProfile:
+        type: "RuntimeDefault"

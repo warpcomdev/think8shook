@@ -1,20 +1,25 @@
 initial:
   # Pod vacío, sin contenedores
   pod:
+    metadata:
+      name: secured_group
+      namespace: default
     spec:
+      securityContext:
+        runAsGroup: 5000
       containers: []
 
 # Debe mutarse
 shouldMutate: true
 
 expected:
-  # Debe añadir el securityContext
-  - op: add
+  # Debe reemplazar el securityContext
+  - op: replace
     path: /spec/securityContext
     value:
-      runAsUser: 1000
-      runAsGroup: 1000
+      runAsUser: 5000
+      runAsGroup: 5000
       runAsNonRoot: true
-      fsGroup: 1000
+      fsGroup: 5000
       seccompProfile:
         type: "RuntimeDefault"

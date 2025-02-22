@@ -1,0 +1,25 @@
+initial:
+  # Pod vacío, sin contenedores
+  pod:
+    metadata:
+      name: secured_root
+      namespace: default
+    spec:
+      securityContext:
+        runAsUser: 0
+      containers: []
+
+# Debe mutarse
+shouldMutate: true
+
+expected:
+  # Debe reemplazar el securityContext
+  - op: replace
+    path: /spec/securityContext
+    value:
+      runAsUser: 0
+      runAsGroup: 0
+      runAsNonRoot: false
+      fsGroup: 0
+      seccompProfile:
+        type: "RuntimeDefault"

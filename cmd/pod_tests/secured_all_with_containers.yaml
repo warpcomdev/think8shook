@@ -1,0 +1,27 @@
+initial:
+  # Pod vacío, sin contenedores
+  pod:
+    metadata:
+      name: secured_all_with_containers
+      namespace: default
+    spec:
+      securityContext:
+        runAsUser: 5000
+        runAsGroup: 6000
+        fsGroup: 7000
+        runAsNonRoot: true
+        seccompProfile:
+          type: "RuntimeDefault"
+      containers:
+      - name: test
+        image: busybox/latest
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+
+# Debe mutarse
+shouldMutate: true
+
+expected: []
